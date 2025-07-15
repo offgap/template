@@ -46,16 +46,14 @@ async function main() {
     await fs.writeFile(path.join(outDir, 'index.html'), html, 'utf8');
   }
 
-  // write CNAME, robots.txt, sitemap.xml if provided
-  if (cfg.project.cname) {
-    await fs.writeFile(path.join(BUILD_DIR, 'CNAME'), cfg.project.cname, 'utf8');
-  }
+  // write robots.txt & sitemap.xml if provided
   if (cfg.project.robots) {
     await fs.writeFile(path.join(BUILD_DIR, 'robots.txt'),
       `User-agent: *\nAllow: /\nSitemap: ${cfg.project.sitemap}`, 'utf8');
   }
   if (cfg.project.sitemap) {
     // dummy sitemap; replace with real generation if needed
+    // optimize: move sitemape list generation to cfg.pages creation loop
     const urls = cfg.pages.map(p => `<url><loc>${cfg.meta.canonical}${p.path}</loc></url>`).join('\n  ');
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
