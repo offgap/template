@@ -3,7 +3,7 @@ name: Build and Deploy to GitHub Pages
 on:
   push:
     paths:
-      - 'live.json'
+      - 'static/_/_.json'
 
 permissions:
   contents: read
