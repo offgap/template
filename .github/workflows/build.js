@@ -12,13 +12,24 @@ const fixedHash = (path) => {
   return hash.toString(36);
 };
 
-const fontString = (familyNames) => {
-  const fonts = familyNames.reduce((acc, val) => {
-    acc.push(`family=${val.replace(/ /g, '+')}`);
-    return acc;
-  }, []).join('&');
-  return `https://fonts.googleapis.com/css2?${fonts}&display=swap`;
+const normalizeVariant = (variant) => {
+  if (variant === 'regular') return { wght: 400, ital: 0 };
+  if (variant === 'italic')  return { wght: 400, ital: 1 };
+  if (variant.endsWith('italic')) return { wght: variant === 'italic' ? '400' : parseInt(variant, 10) || '400', ital: 1 };
+  return { wght: parseInt(variant, 10) || '400', ital: 0 };
 };
+const buildApiString = (family, variants) => {
+  const parsed = Array.from(variants).map(normalizeVariant);
+  const hasItalic = parsed.some((v) => v.ital === 1);
+  if (hasItalic) {
+    const parts = parsed.sort((a, b) => a.ital - b.ital || a.wght - b.wght).map((v) => `${v.ital},${v.wght}`).join(';');
+    return parts === '1,400' ? `${family.replace(/\s+/g, '+')}:ital@1` : `${family.replace(/\s+/g, '+')}:ital,wght@${parts}`;
+  }
+  const weights = parsed.map((v) => v.wght).sort((a, b) => a - b).join(';');
+  return weights === '400' ? family.replace(/\s+/g, '+') : `${family.replace(/\s+/g, '+')}:wght@${weights}`;
+};
+const fontString = (fonts) => Object.keys(fonts).reduce((url, family, index) =>
+  url + (index > 0 ? "&" : '') + "family=" + buildApiString(family, fonts[family]), "https://fonts.googleapis.com/css2?") + "&display=swap";
 
 async function main() {
   const raw = await fs.readFile(CONFIG_PATH, 'utf8');
@@ -33,6 +44,11 @@ async function main() {
   await fs.writeFile(path.join(BUILD_DIR, `${cfg.sid}.js`), cfg.js, 'utf8');
 
   const headTags = (cfg.meta.headTags || []).join('\n    ');
+  const fontURL = fontString(cfg.fonts);
+  const fonts = fontURL.length > 50 ? `
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="${fontURL}">` : '';
   const nav = cfg.pages.reduce((acc, page) => page.path.split('/').length < 4 ? `${acc}<a href="${page.path}">${page.title}</a>` : acc, '');
 
   // generate pages
@@ -48,10 +64,7 @@ async function main() {
   <head>
     <meta charset="utf-8">
     <title>${page.title}</title>
-    <meta name="description" content="${cfg.meta.description}">${cfg.meta.fonts.length ? `
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="${fontString(cfg.meta.fonts)}">` : ''}
+    <meta name="description" content="${cfg.meta.description}">${fonts}
     <link rel="stylesheet" href="/${cfg.sid}.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="32x32">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
